@@ -11,28 +11,6 @@
 #include "types.h"
 
 
-// typedef struct {
-// 	PyObject_HEAD
-// 	PyObject *interpreter;
-// 	int func_ref;
-// } LuaFunction;
-
-// int
-// qamar_lua_func_init()
-// {}
-
-// static PyMethodDef LuaFunctionMethods[] = {
-// 	{NULL, NULL, 0, NULL}
-// };
-
-// static PyTypeObject LuaFunctionType = {
-// 	.ob_base = PyVarObject_HEAD_INIT(NULL, 0)
-// 	.tp_name = "qamar.lua.function",
-// 	.tp_doc = "Lua function",
-// 	.tp_basicsize = sizeof(LuaFunction),
-// 	.tp_itemsize = 0,
-// 	.tp_flags = Py_TPFLAGS_DEFAULT
-// };
 
 static PyModuleDef qamar_module = {
 	PyModuleDef_HEAD_INIT,
