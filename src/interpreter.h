@@ -27,6 +27,9 @@ qamar_lua_exec(LuaInterpreter *self, PyObject *args);
 PyObject*
 qamar_lua_get_var(LuaInterpreter *self, PyObject *args);
 
+PyObject*
+qamar_lua_set_var(LuaInterpreter *self, PyObject *args);
+
 extern PyMethodDef LuaInterpreterMethods[];
 extern PyTypeObject LuaInterpreterType;
 #endif // QAMAR_INTERPRETER_H

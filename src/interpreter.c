@@ -125,10 +125,23 @@ qamar_lua_get_var(LuaInterpreter *self, PyObject *args) {
 	return pyobj;
 }
 
+PyObject*
+qamar_lua_set_var(LuaInterpreter *self, PyObject *args) {
+	char *arg_name;
+	PyObject *arg_value;
+	if (!PyArg_ParseTuple(args, "sO", &arg_name, &arg_value)) {
+		return NULL;
+	}
+	qamar_python_to_lua(self->L, arg_value);
+	lua_setglobal(self->L, arg_name);
+	Py_RETURN_NONE;
+}
+
 PyMethodDef LuaInterpreterMethods[] = {
 	{"init", (PyCFunction)qamar_lua_init, METH_VARARGS | METH_KEYWORDS, "Initialize Lua interpreter"},
 	{"execute", (PyCFunction)qamar_lua_exec, METH_VARARGS, "Execute Lua code"},
 	{"get", (PyCFunction)qamar_lua_get_var, METH_VARARGS, "Get Lua variable"},
+	{"set", (PyCFunction)qamar_lua_set_var, METH_VARARGS, "Set Lua variable"},
 	{NULL, NULL, 0, NULL}
 };
 

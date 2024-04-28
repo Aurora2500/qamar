@@ -20,6 +20,8 @@ typedef struct {
 	int func_ref;
 } LuaFunction;
 
+void qamar_python_to_lua(lua_State *L, PyObject *obj);
+
 int
 qamar_lua_func_init();
 
