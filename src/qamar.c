@@ -15,7 +15,7 @@
 static PyModuleDef qamar_module = {
 	PyModuleDef_HEAD_INIT,
 	"qamar",
-	"A Python module that prints 'Hello, World!'",
+	"A Python module that provides a Lua interpreter",
 	-1,
 };
 

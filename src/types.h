@@ -9,12 +9,14 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "interpreter.h"
+
 PyObject*
-lua_stack_to_pyobj(lua_State *L, int index, int type);
+lua_stack_to_pyobj(LuaInterpreter* lua, int index, int type);
 
 typedef struct {
 	PyObject_HEAD
-	PyObject *interpreter;
+	LuaInterpreter *interpreter;
 	int func_ref;
 } LuaFunction;
 

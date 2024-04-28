@@ -120,7 +120,7 @@ qamar_lua_get_var(LuaInterpreter *self, PyObject *args) {
 		return NULL;
 	}
 	int type = lua_getglobal(self->L, arg_name);
-	PyObject *pyobj = lua_stack_to_pyobj(self->L, -1, type);
+	PyObject *pyobj = lua_stack_to_pyobj(self, -1, type);
 	lua_pop(self->L, 1);
 	return pyobj;
 }
