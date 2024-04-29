@@ -40,7 +40,7 @@ lua_stack_to_pyobj(lua_State* L, int index, int type, struct stack_to_pyobj_extr
 			return (PyObject*)func;
 		}
 		default:
-			assert("Not implemented yet!");
+			PyErr_Format(PyExc_TypeError, "Type conversion not implemented for %s", lua_typename(L, type));
 			return NULL;
 	}
 }
@@ -113,7 +113,19 @@ qamar_lua_function_call(PyObject *callable, PyObject *args, PyObject *kwargs)
 		PyObject *arg = PyTuple_GetItem(args, i);
 		qamar_python_to_lua(L, arg);
 	}
-	lua_call(L, num_args, LUA_MULTRET);
+
+	int status = lua_pcall(L, num_args, LUA_MULTRET, 0);
+
+	if(status != LUA_OK) {
+		PyObject *exc = PyExc_RuntimeError;
+		if (status == LUA_ERRMEM) {
+			exc = PyExc_MemoryError;
+		}
+		PyErr_Format(exc, "Error calling Lua function: %s", lua_tostring(L, -1));
+		lua_pop(L, 1);
+		return NULL;
+	}
+
 	int num_results = lua_gettop(L) - before_size;
 	struct stack_to_pyobj_extra extra = {
 		.lua = self->interpreter,

@@ -108,6 +108,7 @@ PyObject*
 qamar_lua_exec(LuaInterpreter *self, PyObject *args) {
 	const char *code;
 	if (!PyArg_ParseTuple(args, "s", &code)) {
+		PyErr_SetString(PyExc_RuntimeError, "Failed to parse arguments");
 		return NULL;
 	}
 
@@ -126,7 +127,7 @@ qamar_lua_get_var(LuaInterpreter *self, PyObject *args) {
 	char *arg_name;
 	if (!PyArg_ParseTuple(args, "s", &arg_name))
 	{
-		printf("arg_name: %s\n", arg_name);
+		PyErr_SetString(PyExc_TypeError, "Expected string argument");
 		return NULL;
 	}
 	int type = lua_getglobal(self->L, arg_name);
