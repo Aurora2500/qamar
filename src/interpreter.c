@@ -85,6 +85,16 @@ qamar_lua_init(LuaInterpreter *self, PyObject *args, PyObject *kwds) {
 		}
 	}
 
+	luaL_newmetatable(self->L, "qamar.func");
+	lua_pushstring(self->L, "__gc");
+	lua_pushcfunction(self->L, qamar_gc_pyfunc);
+	lua_settable(self->L, -3);
+	lua_pop(self->L, 1);
+
+	lua_pushstring(self->L, "qamar.interpreter");
+	lua_pushlightuserdata(self->L, self);
+	lua_rawset(self->L, LUA_REGISTRYINDEX);
+
 	return 0;
 }
 
@@ -120,7 +130,10 @@ qamar_lua_get_var(LuaInterpreter *self, PyObject *args) {
 		return NULL;
 	}
 	int type = lua_getglobal(self->L, arg_name);
-	PyObject *pyobj = lua_stack_to_pyobj(self, -1, type);
+	struct stack_to_pyobj_extra extra = {
+		.lua = self,
+	};
+	PyObject *pyobj = lua_stack_to_pyobj(self->L, -1, type, &extra);
 	lua_pop(self->L, 1);
 	return pyobj;
 }

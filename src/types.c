@@ -2,8 +2,7 @@
 #include "interpreter.h"
 
 PyObject*
-lua_stack_to_pyobj(LuaInterpreter* lua, int index, int type) {
-	lua_State *L = lua->L;
+lua_stack_to_pyobj(lua_State* L, int index, int type, struct stack_to_pyobj_extra *extra) {
 	if (type == -1) {
 		type = lua_type(L, index);
 	}
@@ -25,8 +24,8 @@ lua_stack_to_pyobj(LuaInterpreter* lua, int index, int type) {
 			int abs_index = lua_absindex(L, index);
 			lua_pushnil(L);
 			while (lua_next(L, abs_index) != 0) {
-				PyObject *key = lua_stack_to_pyobj(lua, -2, -1);
-				PyObject *value = lua_stack_to_pyobj(lua, -1, -1);
+				PyObject *key = lua_stack_to_pyobj(L, -2, -1, extra);
+				PyObject *value = lua_stack_to_pyobj(L, -1, -1, extra);
 				PyDict_SetItem(dict, key, value);
 				lua_pop(L, 1);
 			}
@@ -35,9 +34,8 @@ lua_stack_to_pyobj(LuaInterpreter* lua, int index, int type) {
 		case LUA_TFUNCTION: {
 			lua_pushvalue(L, index);
 			int func_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-			Py_INCREF(lua);
 			LuaFunction *func = PyObject_New(LuaFunction, &LuaFunctionType);
-			func->interpreter = lua;
+			func->interpreter = (LuaInterpreter*)Py_NewRef(extra->lua);
 			func->func_ref = func_ref;
 			return (PyObject*)func;
 		}
@@ -66,6 +64,29 @@ qamar_python_to_lua(lua_State *L, PyObject *obj) {
 			qamar_python_to_lua(L, value);
 			lua_settable(L, -3);
 		}
+	} else if (PyList_Check(obj)) {
+		lua_newtable(L);
+		for (int i = 0; i < PyList_Size(obj); i++)
+		{
+			lua_pushinteger(L, i+1);
+			qamar_python_to_lua(L, PyList_GET_ITEM(obj, i));
+			lua_settable(L,-3);
+		}
+	} else if (PyTuple_Check(obj)) {
+		lua_newtable(L);
+		for (int i = 0; i < PyTuple_Size(obj); i++)
+		{
+			lua_pushinteger(L, i+1);
+			qamar_python_to_lua(L, PyTuple_GetItem(obj, i));
+			lua_settable(L,-3);
+		}
+	} else if (PyFunction_Check(obj)) {
+		PyObject **udata = lua_newuserdata(L, sizeof(PyObject*));
+		luaL_getmetatable(L, "qamar.func");
+		lua_setmetatable(L, -2);
+		*udata = Py_NewRef(obj);
+		
+		lua_pushcclosure(L, qamar_exec_pyfunc, 1);
 	} else {
 		assert("Not implemented yet!");
 	}
@@ -94,16 +115,19 @@ qamar_lua_function_call(PyObject *callable, PyObject *args, PyObject *kwargs)
 	}
 	lua_call(L, num_args, LUA_MULTRET);
 	int num_results = lua_gettop(L) - before_size;
+	struct stack_to_pyobj_extra extra = {
+		.lua = self->interpreter,
+	};
 	if (num_results == 0) {
 		Py_RETURN_NONE;
 	} else if (num_results == 1) {
-		PyObject *res = lua_stack_to_pyobj(self->interpreter, -1, -1);
+		PyObject *res = lua_stack_to_pyobj(self->interpreter->L, -1, -1, &extra);
 		lua_pop(L, 1);
 	return res;
 	} else {
 		PyObject *tuple = PyTuple_New(num_results);
 		for (int i = 0; i < num_results; i++) {
-			PyObject *result = lua_stack_to_pyobj(self->interpreter, before_size + i + 1, -1);
+			PyObject *result = lua_stack_to_pyobj(self->interpreter->L, before_size + i + 1, -1, &extra);
 			PyTuple_SetItem(tuple, i, result);
 		}
 		lua_pop(L, num_results);
@@ -132,3 +156,48 @@ PyTypeObject LuaFunctionType = {
 	.tp_call = qamar_lua_function_call,
 	.tp_dealloc = (destructor)qamar_lua_func_dealloc,
 };
+
+int
+qamar_exec_pyfunc(lua_State *L) {
+	int num_args = lua_gettop(L);
+	PyObject *func = * (PyObject**)lua_touserdata(L, lua_upvalueindex(1));
+
+	lua_pushstring(L, "qamar.interpreter");
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	LuaInterpreter *lua = lua_touserdata(L, -1);
+	struct stack_to_pyobj_extra extra = {
+		.lua = lua,
+	};
+
+	PyObject *args = PyTuple_New(num_args);
+	for (int i = 0; i < num_args; i++) {
+		PyObject *arg = lua_stack_to_pyobj(L, i+1, -1, &extra);
+		PyTuple_SetItem(args, i, arg);
+	}
+
+	PyObject *res = PyObject_CallObject(func, args);
+	Py_DECREF(args);
+
+	if (PyTuple_Check(res)) {
+		int num_results = PyTuple_Size(res);
+		for (int i = 0; i < num_results; i++) {
+			qamar_python_to_lua(L, PyTuple_GetItem(res, i));
+		}
+		Py_DECREF(res);
+		return num_results;
+	} else if (Py_IsNone(res)) {
+		Py_DECREF(res);
+		return 0;
+	} else {
+		qamar_python_to_lua(L, res);
+		Py_DECREF(res);
+		return 1;
+	}
+}
+
+int
+qamar_gc_pyfunc(lua_State *L) {
+	PyObject *func = * (PyObject**)lua_touserdata(L, 1);
+	if (func) Py_DECREF(func);
+	return 0;
+}

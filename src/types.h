@@ -11,8 +11,12 @@
 
 #include "interpreter.h"
 
+struct stack_to_pyobj_extra {
+	LuaInterpreter *lua;
+};
+
 PyObject*
-lua_stack_to_pyobj(LuaInterpreter* lua, int index, int type);
+lua_stack_to_pyobj(lua_State* L, int index, int type, struct stack_to_pyobj_extra *extra);
 
 typedef struct {
 	PyObject_HEAD
@@ -29,5 +33,11 @@ extern PyMethodDef LuaFunctionMethods[];
 
 
 extern PyTypeObject LuaFunctionType;
+
+int
+qamar_exec_pyfunc(lua_State *L);
+
+int
+qamar_gc_pyfunc(lua_State *L);
 
 #endif // QAMAR_TYPES_H
