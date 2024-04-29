@@ -198,31 +198,29 @@ qamar_exec_pyfunc(lua_State *L) {
 	PyObject *res = PyObject_CallObject(func, args);
 	Py_DECREF(args);
 
+	int num_results;
 	if (PyTuple_Check(res)) {
-		int num_results = PyTuple_Size(res);
+		num_results = PyTuple_Size(res);
 		for (int i = 0; i < num_results; i++) {
 			qamar_python_to_lua(L, PyTuple_GetItem(res, i));
 		}
-		Py_DECREF(res);
-		PyGILState_Release(gstate);
-		return num_results;
 	} else if (Py_IsNone(res)) {
-		Py_DECREF(res);
-		PyGILState_Release(gstate);
-		return 0;
+		num_results = 0;
 	} else {
 		qamar_python_to_lua(L, res);
-		Py_DECREF(res);
-		PyGILState_Release(gstate);
-		return 1;
+		num_results = 1;
 	}
+	Py_DECREF(res);
+	PyGILState_Release(gstate);
+	return num_results;
 }
 
 int
 qamar_gc_pyfunc(lua_State *L) {
 	PyObject *func = * (PyObject**)lua_touserdata(L, 1);
-	PyGILState_STATE gstate = PyGILState_Ensure();
-	if (func) Py_DECREF(func);
-	PyGILState_Release(gstate);
+	lua_pushliteral(L, "qamar.interpreter");
+	lua_gettable(L, LUA_REGISTRYINDEX);
+	LuaInterpreter *lua = lua_touserdata(L, -1);
+	qamar_list_insert(&lua->dangling_funcs, func);
 	return 0;
 }

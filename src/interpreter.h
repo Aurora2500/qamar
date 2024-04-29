@@ -10,9 +10,12 @@
 #include <lualib.h>
 #include <lauxlib.h>
 
+#include "list.h"
+
 typedef struct {
 	PyObject_HEAD
 	lua_State *L;
+	struct list dangling_funcs;
 } LuaInterpreter;
 
 int

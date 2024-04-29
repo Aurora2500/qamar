@@ -1,5 +1,6 @@
 #include "interpreter.h"
 #include "types.h"
+#include "list.h"
 
 int 
 qamar_lua_init(LuaInterpreter *self, PyObject *args, PyObject *kwds) {
@@ -115,6 +116,7 @@ qamar_lua_exec(LuaInterpreter *self, PyObject *args) {
 	Py_BEGIN_ALLOW_THREADS
 	result = luaL_dostring(self->L, code);
 	Py_END_ALLOW_THREADS
+	qamar_list_free(&self->dangling_funcs, (void(*)(void*))Py_DecRef);
 
 	if (result != LUA_OK) {
 		PyErr_SetString(PyExc_RuntimeError, lua_tostring(self->L, -1));
