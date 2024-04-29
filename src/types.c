@@ -118,8 +118,10 @@ qamar_lua_function_call(PyObject *callable, PyObject *args, PyObject *kwargs)
 		PyObject *arg = PyTuple_GetItem(args, i);
 		qamar_python_to_lua(L, arg);
 	}
-
-	int status = lua_pcall(L, num_args, LUA_MULTRET, 0);
+	int status;
+	Py_BEGIN_ALLOW_THREADS
+	status = lua_pcall(L, num_args, LUA_MULTRET, 0);
+	Py_END_ALLOW_THREADS
 
 	if(status != LUA_OK) {
 		PyObject *exc = PyExc_RuntimeError;
