@@ -26,6 +26,11 @@ lua_stack_to_pyobj(lua_State* L, int index, int type, struct stack_to_pyobj_extr
 			while (lua_next(L, abs_index) != 0) {
 				PyObject *key = lua_stack_to_pyobj(L, -2, -1, extra);
 				PyObject *value = lua_stack_to_pyobj(L, -1, -1, extra);
+				if(!key || !value) {
+					Py_DECREF(dict);
+					lua_pop(L, 2);
+					return NULL;
+				}
 				PyDict_SetItem(dict, key, value);
 				lua_pop(L, 1);
 			}
@@ -181,6 +186,7 @@ qamar_exec_pyfunc(lua_State *L) {
 		.lua = lua,
 	};
 
+	PyGILState_STATE gstate = PyGILState_Ensure();
 	PyObject *args = PyTuple_New(num_args);
 	for (int i = 0; i < num_args; i++) {
 		PyObject *arg = lua_stack_to_pyobj(L, i+1, -1, &extra);
@@ -196,13 +202,16 @@ qamar_exec_pyfunc(lua_State *L) {
 			qamar_python_to_lua(L, PyTuple_GetItem(res, i));
 		}
 		Py_DECREF(res);
+		PyGILState_Release(gstate);
 		return num_results;
 	} else if (Py_IsNone(res)) {
 		Py_DECREF(res);
+		PyGILState_Release(gstate);
 		return 0;
 	} else {
 		qamar_python_to_lua(L, res);
 		Py_DECREF(res);
+		PyGILState_Release(gstate);
 		return 1;
 	}
 }
@@ -210,6 +219,8 @@ qamar_exec_pyfunc(lua_State *L) {
 int
 qamar_gc_pyfunc(lua_State *L) {
 	PyObject *func = * (PyObject**)lua_touserdata(L, 1);
+	PyGILState_STATE gstate = PyGILState_Ensure();
 	if (func) Py_DECREF(func);
+	PyGILState_Release(gstate);
 	return 0;
 }

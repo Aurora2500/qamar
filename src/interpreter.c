@@ -111,8 +111,10 @@ qamar_lua_exec(LuaInterpreter *self, PyObject *args) {
 		PyErr_SetString(PyExc_RuntimeError, "Failed to parse arguments");
 		return NULL;
 	}
-
-	int result = luaL_dostring(self->L, code);
+	int result;
+	Py_BEGIN_ALLOW_THREADS
+	result = luaL_dostring(self->L, code);
+	Py_END_ALLOW_THREADS
 
 	if (result != LUA_OK) {
 		PyErr_SetString(PyExc_RuntimeError, lua_tostring(self->L, -1));
