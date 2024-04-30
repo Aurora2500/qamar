@@ -23,9 +23,9 @@ qamar_lua_init(LuaInterpreter *self, PyObject *args, PyObject *kwds) {
 		"debug",
 		NULL
 	};
-	bool all = false, base = false, coroutine = false, package = false, string = false, utf8 = false, table = false, math = false, io = false, os = false, debug = false;
+	int all = false, base = false, coroutine = false, package = false, string = false, utf8 = false, table = false, math = false, io = false, os = false, debug = false;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|ppppppppppp", kwlist,
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, "|$ppppppppppp", kwlist,
 			&all,
 			&base,
 			&coroutine,
