@@ -20,7 +20,14 @@ lua_stack_to_pyobj(lua_State* L, int index, int type, struct stack_to_pyobj_extr
 			return PyUnicode_FromString(lua_tostring(L, index));
 		}
 		case LUA_TTABLE: {
+			void* table_ptr = (void*)lua_topointer(L, index);
+			PyObject* pyobj_ptr;
+			if (qamar_treemap_get(&extra->viewed_tables, table_ptr, (intptr_t*)&pyobj_ptr))
+			{
+				return pyobj_ptr;
+			}
 			PyObject *dict = PyDict_New();
+			qamar_treemap_insert(&extra->viewed_tables, table_ptr, (intptr_t)dict);
 			int abs_index = lua_absindex(L, index);
 			lua_pushnil(L);
 			while (lua_next(L, abs_index) != 0) {
@@ -50,8 +57,20 @@ lua_stack_to_pyobj(lua_State* L, int index, int type, struct stack_to_pyobj_extr
 	}
 }
 
+static void
+qamar_ref_top_and_insert_treemap(lua_State *L, struct treemap *visited_objs, void *key) {
+	lua_pushvalue(L, -1);
+	int ref = luaL_ref(L, LUA_REGISTRYINDEX);
+	qamar_treemap_insert(visited_objs, key, ref);
+}
+
 void
-qamar_python_to_lua(lua_State *L, PyObject *obj) {
+qamar_python_to_lua(lua_State *L, PyObject *obj, struct treemap *visited_objs) {
+	int ref;
+	if (qamar_treemap_get(visited_objs, obj, (intptr_t *) &ref)) {
+		lua_rawgeti(L, LUA_REGISTRYINDEX, ref);
+		return;
+	}
 	if (Py_IsNone(obj)) {
 		lua_pushnil(L);
 	} else if (PyBool_Check(obj)) {
@@ -62,27 +81,30 @@ qamar_python_to_lua(lua_State *L, PyObject *obj) {
 		lua_pushstring(L, PyUnicode_AsUTF8(obj));
 	} else if (PyDict_Check(obj)) {
 		lua_newtable(L);
+		qamar_ref_top_and_insert_treemap(L, visited_objs, obj);
 		PyObject *key, *value;
 		Py_ssize_t pos = 0;
 		while (PyDict_Next(obj, &pos, &key, &value)) {
-			qamar_python_to_lua(L, key);
-			qamar_python_to_lua(L, value);
+			qamar_python_to_lua(L, key, visited_objs);
+			qamar_python_to_lua(L, value, visited_objs);
 			lua_settable(L, -3);
 		}
 	} else if (PyList_Check(obj)) {
 		lua_newtable(L);
+		qamar_ref_top_and_insert_treemap(L, visited_objs, obj);
 		for (int i = 0; i < PyList_Size(obj); i++)
 		{
 			lua_pushinteger(L, i+1);
-			qamar_python_to_lua(L, PyList_GET_ITEM(obj, i));
+			qamar_python_to_lua(L, PyList_GET_ITEM(obj, i), visited_objs);
 			lua_settable(L,-3);
 		}
 	} else if (PyTuple_Check(obj)) {
 		lua_newtable(L);
+		qamar_ref_top_and_insert_treemap(L, visited_objs, obj);
 		for (int i = 0; i < PyTuple_Size(obj); i++)
 		{
 			lua_pushinteger(L, i+1);
-			qamar_python_to_lua(L, PyTuple_GetItem(obj, i));
+			qamar_python_to_lua(L, PyTuple_GetItem(obj, i), visited_objs);
 			lua_settable(L,-3);
 		}
 	} else if (PyFunction_Check(obj)) {
@@ -92,6 +114,7 @@ qamar_python_to_lua(lua_State *L, PyObject *obj) {
 		*udata = Py_NewRef(obj);
 		
 		lua_pushcclosure(L, qamar_exec_pyfunc, 1);
+		qamar_ref_top_and_insert_treemap(L, visited_objs, obj);
 	} else {
 		assert("Not implemented yet!");
 	}
@@ -101,6 +124,11 @@ int
 qamar_lua_func_init() {
 
 	return 0;
+}
+
+void qamar_visited_obj_free_dtor(void* _key, intptr_t value, void* luastate)
+{
+	luaL_unref(luastate, LUA_REGISTRYINDEX, value);
 }
 
 PyObject*
@@ -113,11 +141,14 @@ qamar_lua_function_call(PyObject *callable, PyObject *args, PyObject *kwargs)
 
 	lua_pushinteger(L, self->func_ref);
 	lua_gettable(L, LUA_REGISTRYINDEX);
+	struct treemap visited_objs = {0};
 	int num_args = PyTuple_Size(args);
 	for (int i = 0; i < num_args; i++) {
 		PyObject *arg = PyTuple_GetItem(args, i);
-		qamar_python_to_lua(L, arg);
+		qamar_python_to_lua(L, arg, &visited_objs);
 	}
+	qamar_treemap_free(&visited_objs, L, qamar_visited_obj_free_dtor);
+
 	int status;
 	Py_BEGIN_ALLOW_THREADS
 	status = lua_pcall(L, num_args, LUA_MULTRET, 0);
@@ -199,17 +230,19 @@ qamar_exec_pyfunc(lua_State *L) {
 	Py_DECREF(args);
 
 	int num_results;
+	struct treemap visited_obj = {0};
 	if (PyTuple_Check(res)) {
 		num_results = PyTuple_Size(res);
 		for (int i = 0; i < num_results; i++) {
-			qamar_python_to_lua(L, PyTuple_GetItem(res, i));
+			qamar_python_to_lua(L, PyTuple_GetItem(res, i), &visited_obj);
 		}
 	} else if (Py_IsNone(res)) {
 		num_results = 0;
 	} else {
-		qamar_python_to_lua(L, res);
+		qamar_python_to_lua(L, res, &visited_obj);
 		num_results = 1;
 	}
+	qamar_treemap_free(&visited_obj, L, qamar_visited_obj_free_dtor);
 	Py_DECREF(res);
 	PyGILState_Release(gstate);
 	return num_results;

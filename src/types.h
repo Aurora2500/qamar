@@ -10,9 +10,11 @@
 #include <lauxlib.h>
 
 #include "interpreter.h"
+#include "treemap.h"
 
 struct stack_to_pyobj_extra {
 	LuaInterpreter *lua;
+	struct treemap viewed_tables;
 };
 
 PyObject*
@@ -24,7 +26,9 @@ typedef struct {
 	int func_ref;
 } LuaFunction;
 
-void qamar_python_to_lua(lua_State *L, PyObject *obj);
+void qamar_python_to_lua(lua_State *L, PyObject *obj, struct treemap *visited_objs);
+
+void qamar_visited_obj_free_dtor(void *_key, intptr_t value, void* luastate);
 
 int
 qamar_lua_func_init();

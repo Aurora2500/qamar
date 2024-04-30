@@ -137,8 +137,10 @@ qamar_lua_get_var(LuaInterpreter *self, PyObject *args) {
 	int type = lua_getglobal(self->L, arg_name);
 	struct stack_to_pyobj_extra extra = {
 		.lua = self,
+		.viewed_tables = {0},
 	};
 	PyObject *pyobj = lua_stack_to_pyobj(self->L, -1, type, &extra);
+	qamar_treemap_free(&extra.viewed_tables, NULL, NULL);
 	lua_pop(self->L, 1);
 	return pyobj;
 }
@@ -150,7 +152,9 @@ qamar_lua_set_var(LuaInterpreter *self, PyObject *args) {
 	if (!PyArg_ParseTuple(args, "sO", &arg_name, &arg_value)) {
 		return NULL;
 	}
-	qamar_python_to_lua(self->L, arg_value);
+	struct treemap visited_obj = {0};
+	qamar_python_to_lua(self->L, arg_value, &visited_obj);
+	
 	lua_setglobal(self->L, arg_name);
 	Py_RETURN_NONE;
 }
