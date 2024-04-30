@@ -1,0 +1,18 @@
+[project]
+name = "qamar"
+version = "0.1.0"
+authors = [
+  { name="Aurora Zuoris", email="programming.aurora@gmail.com" },
+]
+description = "A lua binding for python"
+readme = "readme.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/Aurora2500/qamar"
+Issues = "https://github.com/Aurora2500/qamar/issues"
